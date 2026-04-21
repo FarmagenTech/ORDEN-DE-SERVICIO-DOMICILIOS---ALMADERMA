@@ -75,9 +75,48 @@
 
   /* Hint de número */
   .phone-hint { font-size: 12px; color: var(--color-text-secondary); margin-top: 4px; }
+
+  /* ── Toast de notificación ── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #1e1e1e;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    transition: transform 0.35s cubic-bezier(.4,0,.2,1), opacity 0.35s;
+    opacity: 0;
+    z-index: 9999;
+    white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  #toast.success { background: #166534; }
+  #toast.error   { background: #7f1d1d; }
+  #toast .toast-icon { font-size: 16px; }
+
+  /* Spinner dentro de botones */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+
+<div id="toast"><span class="toast-icon">✅</span><span id="toast-msg">Orden guardada</span></div>
 
 <div class="container">
   
@@ -174,9 +213,12 @@
       </div>
       <div class="field"><label>Monto total ($)</label><input id="monto" type="number" placeholder="0.00" min="0" step="0.01"></div>
     </div>
-    <div class="field" id="monto-final-field" style="display:none;">
-      <label style="color:var(--brand-color);font-weight:600;">Monto final ($) <span style="font-size:11px;font-weight:500;color:var(--color-text-secondary);">incluye $40 de envío</span></label>
-      <input id="monto-final" type="text" readonly placeholder="—">
+    <div class="field" id="campo-monto-final" style="display:none;">
+      <label style="display:flex;align-items:center;gap:6px;">
+        Monto final
+        <span id="tag-envio-sumado" style="font-size:11px;padding:3px 8px;border-radius:999px;background:#fbebf3;color:#ca5598;font-weight:600;">+ $40 envío</span>
+      </label>
+      <input id="monto-final" type="text" readonly style="font-size:16px;font-weight:700;color:#ca5598;background:#fbebf3;border-color:#ca5598;">
     </div>
     <div class="field"><label>Notas adicionales</label><textarea id="notas" placeholder="Instrucciones especiales, cuidados, etc." style="min-height:55px;"></textarea></div>
   </div>
@@ -188,14 +230,14 @@
 
   <!-- Botones de envío -->
   <div class="btn-wa-group">
-    <!-- Botón principal: envía AL cliente -->
-    <button class="btn-wa" onclick="enviarAlCliente()">
+    <!-- Botón principal: guarda en Sheets + envía AL cliente -->
+    <button class="btn-wa" id="btn-cliente" onclick="enviarAlCliente()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
       Enviar al cliente por WhatsApp
     </button>
 
-    <!-- Botón secundario: envía sin destinatario (uso interno) -->
-    <button class="btn-wa-secondary" onclick="enviarGenerico()">
+    <!-- Botón secundario: guarda en Sheets + envía sin destinatario -->
+    <button class="btn-wa-secondary" id="btn-generico" onclick="enviarGenerico()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="#1aaa52"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
       Compartir mensaje (sin destinatario)
     </button>
@@ -205,21 +247,99 @@
 </div>
 
 <script>
-  let sucursal = '';
+  /* ══════════════════════════════════════════════
+     CONFIGURACIÓN — SOLO CAMBIA ESTA URL
+  ══════════════════════════════════════════════ */
+  const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz7Y5YUdoJakINGErsgtiyu3jxZMn8bMSNECD_ndqfYSwuG-6do_b07jhs-naBW8rgG/exec';
+
+  /* ══════════════════════════════════════════════
+     ESTADO GLOBAL
+  ══════════════════════════════════════════════ */
+  let sucursal  = '';
   let tipoEnvio = '';
   let prioridad = 'Normal';
-  const COSTO_DOMICILIO = 40;
 
+  /* ══════════════════════════════════════════════
+     TOAST
+  ══════════════════════════════════════════════ */
+  let toastTimer = null;
+  function mostrarToast(msg, tipo = 'success') {
+    const toast    = document.getElementById('toast');
+    const toastMsg = document.getElementById('toast-msg');
+    const icon     = toast.querySelector('.toast-icon');
+
+    toast.classList.remove('success', 'error');
+    toast.classList.add(tipo);
+    icon.textContent  = tipo === 'success' ? '✅' : '⚠️';
+    toastMsg.textContent = msg;
+
+    toast.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  /* ══════════════════════════════════════════════
+     GOOGLE SHEETS — guardar orden
+  ══════════════════════════════════════════════ */
+  async function guardarEnSheets() {
+    const productos = obtenerProductos()
+      .map(p => `${p.nombre} x${p.qty}`)
+      .join(' | ');
+
+    const payload = {
+      fecha:     new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
+      folio:     val('folio'),
+      sucursal:  sucursal  || '—',
+      nombre:    val('nombre')   || '—',
+      telefono:  val('telefono') || '—',
+      productos: productos       || '—',
+      direccion: [val('calle'), val('colonia'), val('ciudad')].filter(Boolean).join(', ') || '—',
+      referencias: val('referencias') || '—',
+      tipoEnvio: tipoEnvio   || '—',
+      hora:      val('hora') ? formatHora(val('hora')) : '—',
+      prioridad: prioridad   || 'Normal',
+      pago:      val('pago') || '—',
+      monto:     val('monto') ? `$${parseFloat(val('monto')).toLocaleString('es-MX',{minimumFractionDigits:2})}` : '—',
+      montoFinal: (() => {
+        const m = parseFloat(val('monto'));
+        if (isNaN(m) || !m) return '—';
+        const total = tipoEnvio === 'Domicilio' ? m + COSTO_ENVIO : m;
+        return `$${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+      })(),
+      notas:     val('notas') || '—'
+    };
+
+    try {
+      // no-cors porque Apps Script no devuelve CORS headers en algunos navegadores
+      await fetch(SHEETS_URL, {
+        method:  'POST',
+        mode:    'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      });
+      mostrarToast('✔ Orden guardada en Google Sheets', 'success');
+    } catch (err) {
+      console.warn('No se pudo guardar en Sheets:', err);
+      mostrarToast('Sin conexión — orden NO guardada en Sheets', 'error');
+    }
+  }
+
+  /* ══════════════════════════════════════════════
+     FOLIO
+  ══════════════════════════════════════════════ */
   function generarFolio() {
-    const now = new Date();
-    const y = String(now.getFullYear()).slice(2);
-    const m = String(now.getMonth()+1).padStart(2,'0');
-    const d = String(now.getDate()).padStart(2,'0');
+    const now  = new Date();
+    const y    = String(now.getFullYear()).slice(2);
+    const m    = String(now.getMonth()+1).padStart(2,'0');
+    const d    = String(now.getDate()).padStart(2,'0');
     const rand = String(Math.floor(Math.random()*9000)+1000);
     document.getElementById('folio').value = `ORD-${y}${m}${d}-${rand}`;
     actualizarPreview();
   }
 
+  /* ══════════════════════════════════════════════
+     SELECCIÓN SUCURSAL / BADGES
+  ══════════════════════════════════════════════ */
   function selectSucursal(el) {
     document.querySelectorAll('.suc-btn').forEach(b => b.classList.remove('active'));
     el.classList.add('active');
@@ -230,19 +350,20 @@
   function selectBadge(el, group) {
     el.parentElement.querySelectorAll('.badge').forEach(b => b.classList.remove('active'));
     el.classList.add('active');
-    if(group==='tipo') {
-      tipoEnvio = el.textContent.trim();
-    }
-    if(group==='prio') {
+    if (group === 'tipo') tipoEnvio = el.textContent.trim();
+    if (group === 'prio') {
       prioridad = el.textContent.trim();
-      document.getElementById('tag-urgente').style.display = prioridad==='Urgente' ? 'inline' : 'none';
+      document.getElementById('tag-urgente').style.display = prioridad === 'Urgente' ? 'inline' : 'none';
     }
     actualizarPreview();
   }
 
+  /* ══════════════════════════════════════════════
+     PRODUCTOS
+  ══════════════════════════════════════════════ */
   function agregarProducto() {
     const list = document.getElementById('productos-list');
-    const row = document.createElement('div');
+    const row  = document.createElement('div');
     row.className = 'producto-row';
     row.innerHTML = `<input type="text" placeholder="Nombre del producto" oninput="actualizarPreview()"><input type="number" class="qty-input" placeholder="1" min="1" value="1" oninput="actualizarPreview()"><button class="btn-del" onclick="this.parentElement.remove();actualizarPreview()">×</button>`;
     list.appendChild(row);
@@ -250,57 +371,56 @@
   }
 
   function obtenerProductos() {
-    const rows = document.querySelectorAll('.producto-row');
+    const rows  = document.querySelectorAll('.producto-row');
     const items = [];
     rows.forEach(r => {
       const nombre = r.querySelectorAll('input')[0].value.trim();
-      const qty = r.querySelectorAll('input')[1].value.trim() || '1';
-      if(nombre) items.push({ nombre, qty });
+      const qty    = r.querySelectorAll('input')[1].value.trim() || '1';
+      if (nombre) items.push({ nombre, qty });
     });
     return items;
   }
 
-  function val(id){ return document.getElementById(id).value.trim(); }
+  /* ══════════════════════════════════════════════
+     HELPERS
+  ══════════════════════════════════════════════ */
+  function val(id) { return document.getElementById(id).value.trim(); }
 
-  function formatHora(h){
-    if(!h) return '';
-    const [hh,mm] = h.split(':');
-    const hr = parseInt(hh);
-    const ampm = hr>=12 ? 'PM' : 'AM';
-    const hr12 = hr%12||12;
+  function formatHora(h) {
+    if (!h) return '';
+    const [hh, mm] = h.split(':');
+    const hr   = parseInt(hh);
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    const hr12 = hr % 12 || 12;
     return `${hr12}:${mm} ${ampm}`;
   }
 
-  /* Limpia el número de teléfono: quita espacios, guiones, paréntesis */
-  function limpiarTelefono(tel) {
-    return tel.replace(/[\s\-\(\)\+]/g, '');
-  }
+  function limpiarTelefono(tel)    { return tel.replace(/[\s\-\(\)\+]/g, ''); }
 
-  /* Formatea el número para la API de WhatsApp (agrega código de país 52 si no lo tiene) */
   function formatearTelefonoWA(tel) {
     let t = limpiarTelefono(tel);
     if (!t) return '';
-    // Si empieza con 52 y tiene 12 dígitos, ya está bien
     if (t.startsWith('52') && t.length === 12) return t;
-    // Si tiene 10 dígitos (número local MX), agrega 52
     if (t.length === 10) return '52' + t;
-    // Si tiene 11 dígitos y empieza con 1 (EE.UU./CA), lo deja igual
     return t;
   }
 
-  function construirMensaje(){
-    const folio = val('folio');
-    const nombre = val('nombre');
-    const telefono = val('telefono');
-    const calle = val('calle');
-    const colonia = val('colonia');
-    const ciudad = val('ciudad');
-    const referencias = val('referencias');
-    const hora = val('hora');
-    const pago = val('pago');
-    const monto = val('monto');
-    const notas = val('notas');
-    const productos = obtenerProductos();
+  /* ══════════════════════════════════════════════
+     CONSTRUCCIÓN DEL MENSAJE (uso interno / repartidor)
+  ══════════════════════════════════════════════ */
+  function construirMensaje() {
+    const folio      = val('folio');
+    const nombre     = val('nombre');
+    const telefono   = val('telefono');
+    const calle      = val('calle');
+    const colonia    = val('colonia');
+    const ciudad     = val('ciudad');
+    const referencias= val('referencias');
+    const hora       = val('hora');
+    const pago       = val('pago');
+    const monto      = val('monto');
+    const notas      = val('notas');
+    const productos  = obtenerProductos();
 
     const direccionCompleta = [calle, colonia, ciudad].filter(Boolean).join(', ');
     const mapsUrl = direccionCompleta
@@ -310,154 +430,192 @@
     let msg = '';
     msg += `🏥 *${sucursal || 'SUCURSAL NO SELECCIONADA'}*\n`;
     msg += `🛵 *ORDEN DE SERVICIO A DOMICILIO*\n`;
-    if(folio) msg += `📋 Folio: *${folio}*\n`;
+    if (folio) msg += `📋 Folio: *${folio}*\n`;
 
     msg += `\n👤 *CLIENTE*\n`;
-    if(nombre) msg += `Nombre: ${nombre}\n`;
-    if(telefono) msg += `Tel: ${telefono}\n`;
+    if (nombre)   msg += `Nombre: ${nombre}\n`;
+    if (telefono) msg += `Tel: ${telefono}\n`;
 
-    if(productos.length > 0) {
+    if (productos.length > 0) {
       msg += `\n🛍️ *PRODUCTOS*\n`;
-      productos.forEach(p => {
-        msg += `• ${p.nombre} x${p.qty}\n`;
-      });
+      productos.forEach(p => { msg += `• ${p.nombre} x${p.qty}\n`; });
     }
 
     msg += `\n📍 *DIRECCIÓN DE ENTREGA*\n`;
-    if(calle) msg += `${calle}\n`;
-    if(colonia) msg += `Col. ${colonia}\n`;
-    if(ciudad) msg += `${ciudad}\n`;
-    if(referencias) msg += `Ref: ${referencias}\n`;
-    if(mapsUrl) msg += `🗺️ Ver en Maps: ${mapsUrl}\n`;
+    if (calle)       msg += `${calle}\n`;
+    if (colonia)     msg += `Col. ${colonia}\n`;
+    if (ciudad)      msg += `${ciudad}\n`;
+    if (referencias) msg += `Ref: ${referencias}\n`;
+    if (mapsUrl)     msg += `🗺️ Ver en Maps: ${mapsUrl}\n`;
 
     msg += `\n🔧 *DETALLE DEL SERVICIO*\n`;
-    if(tipoEnvio) msg += `Tipo: ${tipoEnvio}\n`;
-    if(hora) msg += `⏰ Hora estimada: ${formatHora(hora)}\n`;
-    if(prioridad && prioridad!=='Normal') msg += `⚡ Prioridad: ${prioridad}\n`;
+    if (tipoEnvio)                    msg += `Tipo: ${tipoEnvio}\n`;
+    if (hora)                         msg += `⏰ Hora estimada: ${formatHora(hora)}\n`;
+    if (prioridad && prioridad !== 'Normal') msg += `⚡ Prioridad: ${prioridad}\n`;
 
     msg += `\n💳 *PAGO*\n`;
-    if(pago) msg += `Método: ${pago}\n`;
-    if(monto) {
-      if(tipoEnvio === 'Domicilio') {
-        const base = parseFloat(monto) || 0;
-        const total = base + COSTO_DOMICILIO;
-        msg += `Subtotal: $${base.toLocaleString('es-MX',{minimumFractionDigits:2})}\n`;
-        msg += `Envío a domicilio: $${COSTO_DOMICILIO.toFixed(2)}\n`;
-        msg += `Total: $${total.toLocaleString('es-MX',{minimumFractionDigits:2})}\n`;
+    if (pago) msg += `Método: ${pago}\n`;
+    if (monto) {
+      const montoNum    = parseFloat(monto);
+      const montoFinal  = tipoEnvio === 'Domicilio' ? montoNum + COSTO_ENVIO : montoNum;
+      const montoStr    = montoFinal.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+      if (tipoEnvio === 'Domicilio') {
+        msg += `Subtotal: $${montoNum.toLocaleString('es-MX',{minimumFractionDigits:2})}\n`;
+        msg += `Envío a domicilio: $${COSTO_ENVIO}.00\n`;
+        msg += `*Total: $${montoStr}*\n`;
       } else {
-        msg += `Total: $${parseFloat(monto).toLocaleString('es-MX',{minimumFractionDigits:2})}\n`;
+        msg += `Total: $${montoStr}\n`;
       }
     }
-    if(notas) msg += `\n📝 Notas: ${notas}\n`;
+    if (notas) msg += `\n📝 Notas: ${notas}\n`;
 
     return msg.trim();
   }
 
-  function actualizarPreview(){
-    // Actualizar campo Monto final
-    const montoVal = parseFloat(document.getElementById('monto').value) || 0;
-    const montoFinalField = document.getElementById('monto-final-field');
-    const montoFinalInput = document.getElementById('monto-final');
-    if(tipoEnvio === 'Domicilio') {
-      montoFinalField.style.display = 'block';
-      if(montoVal > 0) {
-        montoFinalInput.value = '$' + (montoVal + COSTO_DOMICILIO).toLocaleString('es-MX', {minimumFractionDigits:2});
-      } else {
-        montoFinalInput.value = '';
-        montoFinalInput.placeholder = '—';
-      }
-    } else {
-      montoFinalField.style.display = 'none';
-      montoFinalInput.value = '';
-    }
-
-    const msg = construirMensaje();
-    document.getElementById('preview').textContent = msg || 'Completa los datos para ver el mensaje...';
-  }
-
-  ['nombre','telefono','calle','colonia','ciudad','referencias','hora','pago','monto','notas'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.addEventListener('input', actualizarPreview);
-    if(el) el.addEventListener('change', actualizarPreview);
-  });
-
-  /* ───── MENSAJE DE NOTIFICACIÓN PARA EL CLIENTE ───── */
-  function construirMensajeCliente(){
-    const nombre = val('nombre');
-    const folio = val('folio');
-    const productos = obtenerProductos();
-    const hora = val('hora');
-    const monto = val('monto');
-    const pago = val('pago');
+  /* ══════════════════════════════════════════════
+     MENSAJE PARA EL CLIENTE
+  ══════════════════════════════════════════════ */
+  function construirMensajeCliente() {
+    const nombre   = val('nombre');
+    const folio    = val('folio');
+    const productos= obtenerProductos();
+    const hora     = val('hora');
+    const monto    = val('monto');
+    const pago     = val('pago');
 
     const saludo = nombre ? `Hola *${nombre}* 👋` : 'Hola 👋';
 
     let msg = `${saludo}, te escribimos de *${sucursal || 'Almaderma'}*.\n\n`;
     msg += `📦 Tu pedido *#${folio || '—'}* ya está siendo empacado y en breve nuestro repartidor saldrá en camino a tu domicilio. 🛵\n`;
 
-    if(productos.length > 0){
+    if (productos.length > 0) {
       msg += `\n🛍️ *Resumen de tu pedido:*\n`;
       productos.forEach(p => { msg += `• ${p.nombre} x${p.qty}\n`; });
     }
 
-    if(hora){
-      msg += `\n⏰ Hora estimada de entrega: *${formatHora(hora)}*\n`;
-    }
+    if (hora) msg += `\n⏰ Hora estimada de entrega: *${formatHora(hora)}*\n`;
 
-    if(monto){
-      if(tipoEnvio === 'Domicilio') {
-        const base = parseFloat(monto) || 0;
-        const total = base + COSTO_DOMICILIO;
-        msg += `\n💳 Subtotal: *$${base.toLocaleString('es-MX',{minimumFractionDigits:2})}*\n`;
-        msg += `🛵 Envío a domicilio: *$${COSTO_DOMICILIO.toFixed(2)}*\n`;
-        msg += `💰 Total a pagar: *$${total.toLocaleString('es-MX',{minimumFractionDigits:2})}*`;
-      } else {
-        msg += `\n💳 Total a pagar: *$${parseFloat(monto).toLocaleString('es-MX',{minimumFractionDigits:2})}*`;
-      }
-      if(pago) msg += ` (${pago})`;
+    if (monto) {
+      const montoNum   = parseFloat(monto);
+      const montoFinal = tipoEnvio === 'Domicilio' ? montoNum + COSTO_ENVIO : montoNum;
+      msg += `\n💳 Total a pagar: *$${montoFinal.toLocaleString('es-MX',{minimumFractionDigits:2})}*`;
+      if (pago) msg += ` (${pago})`;
       msg += `\n`;
     }
 
     msg += `\nSi tienes alguna duda, no dudes en escribirnos. ¡Gracias por tu compra! 💊✨`;
-
     return msg.trim();
   }
 
-  /* ───── ENVÍO AL CLIENTE (con número destino) ───── */
-  function enviarAlCliente(){
-    if(!sucursal){ alert('Selecciona una sucursal antes de enviar.'); return; }
+  /* ══════════════════════════════════════════════
+     MONTO FINAL (monto + $40 si es Domicilio)
+  ══════════════════════════════════════════════ */
+  const COSTO_ENVIO = 40;
+
+  function calcularMontoFinal() {
+    const montoRaw = parseFloat(val('monto'));
+    const esDomicilio = tipoEnvio === 'Domicilio';
+    const campo = document.getElementById('campo-monto-final');
+    const inputFinal = document.getElementById('monto-final');
+
+    if (!isNaN(montoRaw) && montoRaw > 0 && esDomicilio) {
+      const total = montoRaw + COSTO_ENVIO;
+      inputFinal.value = `$${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+      campo.style.display = '';
+    } else {
+      campo.style.display = 'none';
+      inputFinal.value = '';
+    }
+  }
+
+  /* ══════════════════════════════════════════════
+     PREVIEW
+  ══════════════════════════════════════════════ */
+  function actualizarPreview() {
+    calcularMontoFinal();
+    const msg = construirMensaje();
+    document.getElementById('preview').textContent = msg || 'Completa los datos para ver el mensaje...';
+  }
+
+  ['nombre','telefono','calle','colonia','ciudad','referencias','hora','pago','monto','notas'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input',  actualizarPreview);
+    if (el) el.addEventListener('change', actualizarPreview);
+  });
+
+  /* ══════════════════════════════════════════════
+     ENVÍO AL CLIENTE  (guarda + abre WA al número del cliente)
+  ══════════════════════════════════════════════ */
+  async function enviarAlCliente() {
+    if (!sucursal) { alert('Selecciona una sucursal antes de enviar.'); return; }
 
     const telefonoRaw = val('telefono');
-    if(!telefonoRaw){ alert('Ingresa el teléfono del cliente para enviarle el mensaje.'); return; }
+    if (!telefonoRaw) { alert('Ingresa el teléfono del cliente para enviarle el mensaje.'); return; }
+
+    setLoadingBtn('btn-cliente', true);
+
+    await guardarEnSheets();          // ← guarda en Sheets primero
 
     const telefono = formatearTelefonoWA(telefonoRaw);
-    const msg = construirMensajeCliente();
-
-    // Abre WhatsApp directamente al número del cliente con mensaje de notificación
+    const msg      = construirMensajeCliente();
     window.open(`https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(msg)}`, '_blank');
+
+    setLoadingBtn('btn-cliente', false);
   }
 
-  /* ───── ENVÍO GENÉRICO (sin número destino, como antes) ───── */
-  function enviarGenerico(){
-    if(!sucursal){ alert('Selecciona una sucursal antes de enviar.'); return; }
+  /* ══════════════════════════════════════════════
+     ENVÍO GENÉRICO  (guarda + abre WA sin número)
+  ══════════════════════════════════════════════ */
+  async function enviarGenerico() {
+    if (!sucursal) { alert('Selecciona una sucursal antes de enviar.'); return; }
+
+    setLoadingBtn('btn-generico', true);
+
+    await guardarEnSheets();          // ← guarda en Sheets primero
+
     const msg = construirMensaje();
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+
+    setLoadingBtn('btn-generico', false);
   }
 
-  function limpiarForm(){
+  /* ══════════════════════════════════════════════
+     SPINNER EN BOTONES
+  ══════════════════════════════════════════════ */
+  const btnLabels = {
+    'btn-cliente':  `<svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Enviar al cliente por WhatsApp`,
+    'btn-generico': `<svg width="18" height="18" viewBox="0 0 24 24" fill="#1aaa52"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Compartir mensaje (sin destinatario)`
+  };
+
+  function setLoadingBtn(id, loading) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.innerHTML = loading
+      ? `<span class="spinner"></span> Guardando...`
+      : btnLabels[id];
+  }
+
+  /* ══════════════════════════════════════════════
+     LIMPIAR FORMULARIO
+  ══════════════════════════════════════════════ */
+  function limpiarForm() {
     ['nombre','telefono','calle','colonia','ciudad','referencias','hora','pago','monto','notas'].forEach(id => {
-      const el = document.getElementById(id); if(el) el.value='';
+      const el = document.getElementById(id); if (el) el.value = '';
     });
     document.getElementById('productos-list').innerHTML = '';
-    sucursal=''; tipoEnvio=''; prioridad='Normal';
-    document.querySelectorAll('.suc-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.badge').forEach(b=>b.classList.remove('active'));
+    sucursal = ''; tipoEnvio = ''; prioridad = 'Normal';
+    document.querySelectorAll('.suc-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.badge').forEach(b => b.classList.remove('active'));
     document.querySelector('.badge').classList.add('active');
-    document.getElementById('tag-urgente').style.display='none';
+    document.getElementById('tag-urgente').style.display = 'none';
     generarFolio();
     actualizarPreview();
   }
 
+  /* ══════════════════════════════════════════════
+     INICIO
+  ══════════════════════════════════════════════ */
   generarFolio();
   agregarProducto();
 </script>
