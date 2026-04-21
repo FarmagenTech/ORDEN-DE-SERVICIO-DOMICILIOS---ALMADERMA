@@ -554,8 +554,6 @@
 
     setLoadingBtn('btn-cliente', true);
 
-    await guardarEnSheets();          // ← guarda en Sheets primero
-
     const telefono = formatearTelefonoWA(telefonoRaw);
     const msg      = construirMensajeCliente();
     window.open(`https://api.whatsapp.com/send?phone=${telefono}&text=${encodeURIComponent(msg)}`, '_blank');
