@@ -299,13 +299,13 @@
       hora:      val('hora') ? formatHora(val('hora')) : '—',
       prioridad: prioridad   || 'Normal',
       pago:      val('pago') || '—',
-      monto:     val('monto') ? `$${parseFloat(val('monto')).toLocaleString('es-MX',{minimumFractionDigits:2})}` : '—',
-      montoFinal: (() => {
+      monto: (() => {
         const m = parseFloat(val('monto'));
         if (isNaN(m) || !m) return '—';
         const total = tipoEnvio === 'Domicilio' ? m + COSTO_ENVIO : m;
         return `$${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
       })(),
+      subtotal:  val('monto') ? `$${parseFloat(val('monto')).toLocaleString('es-MX',{minimumFractionDigits:2})}` : '—',
       notas:     val('notas') || '—'
     };
 
